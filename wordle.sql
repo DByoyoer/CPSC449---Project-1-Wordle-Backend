@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS guesses(
     gameID INT,
     guess VARCHAR,
     guessNumber SMALLINT,
+    FOREIGN KEY(gameID) references games(gameID),
     FOREIGN KEY(guess) references validGuesses(word),
     unique(gameID, guess, guessNumber)
 );
