@@ -1,3 +1,5 @@
+-- $ sqlite3 wordle.db < wordle.sql
+
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS users (
     userID INT primary key,
@@ -24,10 +26,12 @@ CREATE TABLE IF NOT EXISTS inProgress(
     FOREIGN KEY(gameID) references games(gameID)
 );
 CREATE TABLE IF NOT EXISTS guesses(
-    gameID INT primary key,
+    guessID INT primary key,
+    gameID INT,
     guess VARCHAR,
     guessNumber SMALLINT,
-    FOREIGN KEY(guess) references validGuesses(word)
+    FOREIGN KEY(guess) references validGuesses(word),
+    unique(gameID, guess, guessNumber)
 );
 
 
