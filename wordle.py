@@ -46,6 +46,7 @@ async def close_connection(exception):
 
 @app.route("/login", methods=["GET"])
 async def login():
+    """Validate password for a user"""
     db = await _get_db()
     await check_user(db, request.authorization)
     success_response = {"authenticated": True}
@@ -55,6 +56,7 @@ async def login():
 @app.route("/users", methods=["POST"])
 @validate_request(User)
 async def create_user(data):
+    """Add a new user."""
     db = await _get_db()
     user = dataclasses.asdict(data)
 
@@ -83,6 +85,9 @@ async def create_user(data):
 @app.route("/games/<int:gameID>", methods=["POST"])
 @validate_request(Guess)
 async def create_guess(data, gameID):
+    """
+    Make a guess for a given game id
+    """
     db = await _get_db()
     guess = data.guess
     isValid = False
@@ -136,6 +141,7 @@ async def create_guess(data, gameID):
 #  to a game that is finished, return only the number of guesses.
 @app.route("/games/<int:gameID>", methods=["GET"])
 async def getGameState(gameID):
+    """Retrieve the stae of the given gameID"""
     db = await _get_db()
     isValid = False
 
@@ -171,6 +177,7 @@ async def getGameState(gameID):
 
 @app.route("/games", methods=["POST"])
 async def createGame():
+    """Initialize a new game with a random secret word for user specified in basic-auth header"""
     db = await _get_db()
     userID = await check_user(db, request.authorization)
     secretWord = await getRandomWord(db)
@@ -187,6 +194,7 @@ async def createGame():
 
 @app.route("/games", methods=["GET"])
 async def getGamesInProg():
+    """Retrieve games in progress for a given user requires http-basic-auth header."""
     db = await _get_db()
     userID = await check_user(db, request.authorization)
     result = await db.fetch_all(
