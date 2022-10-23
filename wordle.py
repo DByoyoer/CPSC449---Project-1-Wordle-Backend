@@ -6,8 +6,8 @@ import random
 import databases
 import toml
 
-from quart import Quart, g, request, abort, jsonify
-from quart_schema import QuartSchema, RequestSchemaValidationError, validate_request
+from quart import Quart, g, request, abort
+from quart_schema import QuartSchema, validate_request
 
 app = Quart(__name__)
 QuartSchema(app)
