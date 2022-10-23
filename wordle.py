@@ -1,4 +1,3 @@
-import collections
 import dataclasses
 import sqlite3
 import textwrap
@@ -7,7 +6,7 @@ import random
 import databases
 import toml
 
-from quart import Quart, g, request, abort
+from quart import Quart, g, request, abort, jsonify
 from quart_schema import QuartSchema, RequestSchemaValidationError, validate_request
 
 app = Quart(__name__)
@@ -136,14 +135,15 @@ async def createGame():
 
 
 @app.route("/games", methods=["GET"])
-async def getGamesInProg(data):
+async def getGamesInProg():
     db = await _get_db()
     userID = await check_user(db, request.authorization)
     result = await db.fetch_all(
-        "SELECT * FROM inProgess JOIN games on inProgress.gameId = games.gameID where games.userID = (:userID)",
+        "SELECT gameID FROM games WHERE userID = :userID AND isInProgress=true",
         {"userID": userID},
     )
-    return
+    result = [r[0] for r in result]
+    return {"inProgress": list(result)}, 200
 
 
 def wordle(guess, game):

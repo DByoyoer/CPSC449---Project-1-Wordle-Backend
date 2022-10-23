@@ -13,18 +13,12 @@ CREATE TABLE IF NOT EXISTS games (
     secretWord VARCHAR NOT NULL,
     guessesMade INTEGER DEFAULT 0,
     userID INTEGER NOT NULL,
+    isInProgress BOOLEAN DEFAULT true,
+    isWon BOOLEAN DEFAULT false,
     FOREIGN KEY(userID) references users(userID),
     FOREIGN KEY(secretWord) references secretWords(word)
 );
-CREATE TABLE IF NOT EXISTS inProgress(
-    gameID INTEGER primary key,
-    FOREIGN KEY(gameID) references games(gameID)
-);
-CREATE TABLE IF NOT EXISTS finished(
-    gameID INTEGER primary key,
-    isWinner BOOLEAN,
-    FOREIGN KEY(gameID) references games(gameID)
-);
+
 CREATE TABLE IF NOT EXISTS guesses(
     guessID INTEGER primary key ASC,
     gameID INT,
