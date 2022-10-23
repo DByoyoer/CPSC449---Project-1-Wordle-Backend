@@ -15,6 +15,9 @@ QuartSchema(app)
 app.config.from_file(f"./etc/{__name__}.toml", toml.load)
 
 
+MAX_GUESSES = 6
+
+
 @dataclasses.dataclass
 class Guess:
     guess: str
@@ -24,11 +27,6 @@ class Guess:
 class User:
     username: str
     password: str
-
-
-@dataclasses.dataclass
-class Guess:
-    Guess: str
 
 
 async def _get_db():
@@ -84,38 +82,101 @@ async def create_user(data):
     return {"Message": "User Successfully Created. Please create a game"}, 201
 
 
+# Whether the guess was a valid word.
+# If the guess was valid, whether the guess was correct (i.e. whether the guess was the secret word).
+# The number of guesses remaining. (Only valid guesses should decrement this number.)
+# Vaid but incorrect guesses should also return:
+# The letters that are in the secret word and in the correct spot
+# The letters that are in the secret word but in the wrong spot
+
+
 @app.route("/games/<int:gameID>", methods=["POST"])
 @validate_request(Guess)
 async def create_guess(data, gameID):
     db = await _get_db()
-    guess = data
-    try:
-        await db.execute(
-            """
-            UPDATE games SET guessesMade = guessesMade + 1 WHERE gameID = :gameID", VALUES (:gameID)
-        """,
-            gameID,
-        )
-    except sqlite3.IntegrityError as e:
-        abort(409, e)
+    guess = data.guess
+    isValid = False
 
-    game = dict(
-        await db.fetch_one(
-            "SELECT * FROM games WHERE gameID = :gameID", values={"gameID": gameID}
-        )
+    game = await db.fetch_one(
+        "SELECT * FROM games WHERE gameID = :gameID AND isInProgress = true",
+        {"gameID": gameID},
     )
+    if game is None:
+        return {"message": "Game not found or game finshed."}, 404
+    game = dict(game)
     if validate_input(guess, db):
+        isValid = True
+        game["guessesMade"] += 1
+
         try:
             await db.execute(
                 """
-                INSERT INTO guesses(guess), values (:guess, :guessNumber)
-            """,
-                guess,
-                game.guessesMade,
+                UPDATE games SET guessesMade = guessesMade + 1 WHERE gameID = :gameID
+                """,
+                {"gameID": gameID},
             )
         except sqlite3.IntegrityError as e:
             abort(409, e)
-        wordle(guess, game)
+        try:
+            await db.execute(
+                """
+                INSERT INTO guesses(gameID, guess, guessNumber ) values (:gameID, :guess, :guessNumber)
+            """,
+                {
+                    "gameID": game["gameID"],
+                    "guess": guess,
+                    "guessNumber": game["guessesMade"],
+                },
+            )
+        except sqlite3.IntegrityError as e:
+            abort(409, e)
+        result, isSecret = await wordle(guess, game, db)
+
+    guessesRemaining = MAX_GUESSES - game["guessesMade"]
+    return {
+        "isValid": isValid,
+        "isSecret": isSecret,
+        "result": result,
+        "guessesRemaining": guessesRemaining,
+    }, 201
+
+
+# When supplied with an identifier for a game that is in progress, the user should receive the same values
+# as an incorrect guess, except that the number of guesses should not be incremented. If the identifier corresponds
+#  to a game that is finished, return only the number of guesses.
+@app.route("/games/<int:gameID>", methods=["GET"])
+async def getGameState(gameID):
+    db = await _get_db()
+    isValid = False
+
+    game = await db.fetch_one(
+        "SELECT * FROM games WHERE gameID = :gameID",
+        {"gameID": gameID},
+    )
+    if game is None:
+        return {"message": "Game not found."}, 404
+    game = dict(game)
+    if not game["isInProgress"]:
+        return {"guessesMade": game["guessesMade"], "isWon": game["isWon"]}
+
+    guesses = await db.fetch_all(
+        """SELECT guess, guessNumber FROM guesses WHERE gameID = :gameID ORDER BY guessNumber""",
+        {"gameID": gameID},
+    )
+    results = []
+    for (guess, guessNum) in guesses:
+        result, isSecret = await wordle(guess, game, db)
+        results.append(
+            {
+                "guessNumber": guessNum,
+                "isValid": isValid,
+                "isSecret": isSecret,
+                "result": result,
+                "guessesRemaining": MAX_GUESSES - guessNum,
+            }
+        )
+
+    return {"results": results}, 200
 
 
 @app.route("/games", methods=["POST"])
@@ -146,25 +207,43 @@ async def getGamesInProg():
     return {"inProgress": list(result)}, 200
 
 
-def wordle(guess, game):
-
-    if guess == game.secretWord:
-        # change inprogress to finished table, set is winner to true
-        pass
-    elif game.guessesMade == 6:
-        # change inprogress to finished table
-        pass
-    result = []
-    count = 0
-    for char in guess:
-        if char == game.secretWord[count]:
-            result[count] = 2
-        elif char in game.secretWord:
-            result[count] = 1
+async def wordle(guess, game, db):
+    newSecretWord = secretWord = game["secretWord"]
+    if guess == secretWord:
+        try:
+            await db.execute(
+                """
+                UPDATE games SET isInProgress = False AND isWon = True WHERE gameID = :gameID
+            """,
+                {"gameID": game["gameID"]},
+            )
+        except sqlite3.IntegrityError as e:
+            abort(409, e)
+        return [2, 2, 2, 2, 2], True
+    elif game["guessesMade"] >= 6:
+        try:
+            await db.execute(
+                """
+                UPDATE games SET isInProgress = False AND isWon = True WHERE gameID = :gameID
+                """,
+                {"gameID": game["gameID"]},
+            )
+        except sqlite3.IntegrityError as e:
+            abort(409, e)
+    result = [0] * 5
+    for i, char in enumerate(guess):
+        if char == secretWord[i]:
+            result[i] = 2
+            newSecretWord = secretWord.replace(char, "-")
+    for i, char in enumerate(guess):
+        if result[i] == 2:
+            continue
+        elif char in newSecretWord:
+            result[i] = 1
         else:
-            result[count] = 0
-        count += 1
-    print(result)
+            result[i] = 0
+
+    return result, False
 
 
 async def validate_input(guess, db):
@@ -172,7 +251,7 @@ async def validate_input(guess, db):
         print("Error: Expected 5 letter word")
         return False
     if (
-        not await db.fetch_one("SELECT * FROM validGuesses WHERE word=(?)", (guess,))
+        await db.fetch_one("SELECT * FROM validGuesses WHERE word=(?)", (guess,))
         is None
     ):
         print("Error: Please enter a valid word")
