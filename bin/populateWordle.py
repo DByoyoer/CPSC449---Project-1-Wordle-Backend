@@ -10,8 +10,8 @@ def populate():
     with open("valid.json") as file:
         validGuessList = json.load(file)
 
-
-    con = sqlite3.connect("wordle.db")
+# Hardcoded :(
+    con = sqlite3.connect("./var/wordle.db")
 
     cur = con.cursor()
 
