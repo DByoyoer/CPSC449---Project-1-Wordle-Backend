@@ -44,16 +44,6 @@ async def close_connection(exception):
         await db.disconnect()
 
 
-@app.route("/", methods=["GET"])
-def index():
-    return textwrap.dedent(
-        """
-        <h1>Wordle Game </h1>
-        <p>A prototype API used to play multiple instances of the popular online game Wordle.</p>\n
-        """
-    )
-
-
 @app.route("/login", methods=["GET"])
 async def login():
     db = await _get_db()
