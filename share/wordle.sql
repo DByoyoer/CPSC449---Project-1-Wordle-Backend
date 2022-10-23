@@ -2,31 +2,31 @@
 
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS users (
-    userID INT primary key,
+    userID INTEGER primary key ASC,
     name VARCHAR,
     password VARCHAR
 );
 CREATE TABLE IF NOT EXISTS secretWords(word VARCHAR primary key);
 CREATE TABLE IF NOT EXISTS validGuesses(word VARCHAR primary key);
 CREATE TABLE IF NOT EXISTS games (
-    gameID INT primary key,
+    gameID INTEGER primary key ASC,
     secretWord VARCHAR NOT NULL,
-    guessesMade INT DEFAULT 0,
-    userID INT NOT NULL,
+    guessesMade INTEGER DEFAULT 0,
+    userID INTEGER NOT NULL,
     FOREIGN KEY(userID) references users(userID),
     FOREIGN KEY(secretWord) references secretWords(word)
 );
 CREATE TABLE IF NOT EXISTS inProgress(
-    gameID INT primary key,
+    gameID INTEGER primary key,
     FOREIGN KEY(gameID) references games(gameID)
 );
-CREATE TABLE IF NOT EXISTS inProgress(
-    gameID INT primary key,
+CREATE TABLE IF NOT EXISTS finished(
+    gameID INTEGER primary key,
     isWinner BOOLEAN,
     FOREIGN KEY(gameID) references games(gameID)
 );
 CREATE TABLE IF NOT EXISTS guesses(
-    guessID INT primary key,
+    guessID INTEGER primary key ASC,
     gameID INT,
     guess VARCHAR,
     guessNumber SMALLINT,
